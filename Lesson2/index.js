@@ -65,6 +65,7 @@ const strNormalize = (str) => str.normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd').replace(/Đ/g, 'D')
     .toLowerCase()
+const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 
 // Viết API lấy thông tin của user với id được truyền trên params.
 app.get('/user/:id', (req, res) => {
@@ -84,6 +85,11 @@ app.post('/signup/', (req, res) => {
     const { userName, email, age, avatar } = req.body
     if (!userName || !email) {
         return res.status(422).json({ errMsg: "Username or email is not valid" })
+    }
+    if (!new RegExp(emailRegex).test(email)) {
+        return res
+            .status(400)
+            .json({ msg: 'Email is not valid' })
     }
     let findUser = users.find(user =>
         user.userName === userName || user.email === email)
