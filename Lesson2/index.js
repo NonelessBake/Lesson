@@ -142,18 +142,19 @@ app.post('/post/:id', (req, res) => {
             .status(422)
             .json({ errMsg: "Content can't be empty" })
     }
-
+    const newPost = {
+        userId: id,
+        postId: crypto.randomUUID(),
+        content,
+        createdAt: date,
+        isPublic: isPublic ? isPublic : false,
+    }
+    posts.push(newPost)
     return res
         .status(201)
         .json({
             msg: "Succesful to create a post",
-            data: {
-                userId: id,
-                postId: crypto.randomUUID(),
-                content,
-                createdAt: date,
-                isPublic: isPublic ? isPublic : true,
-            }
+            data: newPost
         })
 
 })
@@ -163,7 +164,8 @@ app.patch('/post/:postId', (req, res) => {
     const { postId } = req.params
     const { id, content } = req.body
     const findPost = posts.find(post => post.postId === postId)
-    if (!findPost) {
+    const findPostIndex = posts.findIndex(post => post.postId === postId)
+    if (!findPost && findPostIndex === -1) {
         return res
             .status(404)
             .json({ errMsg: 'Post not found' })
@@ -181,6 +183,7 @@ app.patch('/post/:postId', (req, res) => {
     const date = new Date()
     findPost.content = content
     findPost.updatedAt = date
+    posts[findPostIndex] = findPost
     return res
         .status(200)
         .json({
