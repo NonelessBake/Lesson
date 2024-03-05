@@ -278,7 +278,7 @@ app.get("/posts", async (req, res) => {
         const commentsData = await fetch(commentsDB)
         const comments = await commentsData.json()
 
-        const test = posts.map(post => {
+        const postsList = posts.map(post => {
             const commentsList = comments.filter(comment => comment.postId === post.id)
             post.comments = commentsList
             return post
@@ -287,7 +287,7 @@ app.get("/posts", async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Get posts success",
-            data: test
+            data: postsList
         })
     }
     catch (error) {
