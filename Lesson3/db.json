@@ -1,0 +1,73 @@
+{
+  "users": [
+    {
+      "id": "US001",
+      "userName": "MindX"
+    },
+    {
+      "id": "US002",
+      "useName": "Nobi Nobita"
+    },
+    {
+      "id": "US1157",
+      "userName": "Mindy",
+      "email": "con@gmail.com",
+      "password": 123
+    },
+    {
+      "id": "US220",
+      "userName": "Nordy",
+      "email": "con1@gmail.com",
+      "password": 123
+    },
+    {
+      "id": "US8082",
+      "userName": "NordyHam",
+      "email": "levelus@gmail.com",
+      "password": 123
+    },
+    {
+      "id": "US1028",
+      "userName": "NordyHam1",
+      "email": "levelusss@gmail.com",
+      "password": 123
+    }
+  ],
+  "posts": [
+    {
+      "id": "PS001",
+      "content": "Change1",
+      "authorId": "US001"
+    },
+    {
+      "id": "8297397d-9784-49ba-9715-ab799e0c3369",
+      "content": "asdsadasdazx",
+      "authorId": "US1028"
+    },
+    {
+      "id": "2dc7c112-da8d-4fee-9d42-26a8baab34f5",
+      "content": "Hello me",
+      "authorId": "US1028"
+    }
+  ],
+  "comments": [
+    {
+      "id": "CMT001",
+      "postId": "PS001",
+      "content": "Bài học này rất ý nghĩa! Cảm ơn MindX!",
+      "authorId": "US002"
+    },
+    {
+      "id": "881090a3-69ad-485e-b421-f9d9f5278cd4",
+      "postId": "PS001",
+      "content": "asdsada",
+      "authorId": "US001"
+    },
+    {
+      "id": "d2530420-9344-466c-b35d-138c5014a89e",
+      "postId": "8297397d-9784-49ba-9715-ab799e0c3369",
+      "content": "Hello me",
+      "authorId": "US220"
+    }
+  ]
+}

@@ -1,1 +1,0 @@
-HTTP protocol - giao thức HTTP - là 1 format message được định nghĩa xài chung như 1 chuẩn chung

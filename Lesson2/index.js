@@ -1,4 +1,4 @@
-import express, { json } from 'express'
+import express from 'express'
 import { users, posts } from './data.js'
 const app = express()
 const port = 3000
