@@ -280,10 +280,9 @@ app.get("/posts", async (req, res) => {
 
         const postsList = posts.map(post => {
             const commentsList = comments.filter(comment => comment.postId === post.id)
-            post.comments = commentsList
+            post.comments = commentsList.slice(0, 3)
             return post
-        }
-        )
+        })
         res.status(200).json({
             success: true,
             message: "Get posts success",
