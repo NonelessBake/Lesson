@@ -1,63 +1,51 @@
 import express from 'express'
+import mongoose from 'mongoose'
+import UsersModel from './models/users.js'
+import PostsModel from './models/posts.js'
+import CommentsModel from './models/comments.js'
+import { SERVER_CONFIG } from './configs/server.config.js'
 
+const urlDB = `mongodb+srv://${SERVER_CONFIG.RESOURCES.username}:${SERVER_CONFIG.RESOURCES.password}@cluster0.3ckpb3m.mongodb.net/${SERVER_CONFIG.RESOURCES.databaseName}?retryWrites=true&w=majority&appName=Cluster0`
+
+mongoose.connect(urlDB)
 const app = express()
-const urlPort = 8080
-const usersDB = 'http://localhost:3000/users'
-const postsDB = 'http://localhost:3000/posts'
-const commentsDB = 'http://localhost:3000/comments'
-const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-const generateId = (strKey, arr) => {
-    const id = strKey + Math.floor(Math.random() * 10000)
-    const duplicateId = arr.findIndex(ele => ele.id === id)
-    if (duplicateId !== -1) {
-        generateId(arr)
-    }
-    return id
-}
-const updateToDB = async (method, url, data) => {
-    await fetch(url, {
-        method,
-        body: JSON.stringify(data)
-    })
-}
-
 app.use(express.json());
 
+
+
 // Viết API việc đăng ký user với userName, id sẽ được là một string ngẫu nhiên, không được phép trùng, bắt đầu từ ký tự US(ví dụ: US8823).
+const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+const requireRegister = (key) => {
+    return `${key} is required`
+}
+
 app.post('/register', async (req, res) => {
     try {
         const { userName, email, password } = req.body;
 
-        if (!userName) throw new Error('userName is required!');
-        if (!email) throw new Error('email is required!');
-        if (!password) throw new Error('password is required!');
-        if (!new RegExp(emailRegex).test(email)) {
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    error: 'Email is not valid'
-                })
-        }
-        const usersData = await fetch(usersDB)
-        const users = await usersData.json()
-        const userExist = users.findIndex(user =>
-            user.userName === userName ||
-            user.email === email
-        )
-        if (userExist !== -1) throw new Error('Username or email already exists')
-        const newUser = {
-            id: generateId('US', users),
+        if (!userName) throw new Error(requireRegister('Username'));
+        if (!email) throw new Error(requireRegister('Email'));
+        if (!password) throw new Error(requireRegister('Password'));
+        if (!new RegExp(emailRegex).test(email)) throw new Error('Email is not valid')
+
+        const existedEmail = await UsersModel.findOne({
+            email
+        })
+        if (existedEmail) throw new Error('Email is already existed')
+
+        const createdUser = await UsersModel.create({
             userName,
             email,
             password
-        }
-        await updateToDB("POST", usersDB, newUser)
+        })
+
+        delete createdUser.password
         res.status(201).json({
-            data: newUser,
+            data: createdUser,
             success: true,
-            message: 'Register success'
-        });
+            message: 'Register Successfully'
+        })
+
     } catch (error) {
         res.status(403).json({
             data: null,
@@ -67,32 +55,23 @@ app.post('/register', async (req, res) => {
     }
 })
 // Viết API cho phép user tạo bài post(thêm bài post, xử lý id tương tự user).
-app.post('/posts', async (req, res) => {
+app.post('/:userId/post', async (req, res) => {
     try {
-        const { content, userId } = req.body
+        const { content } = req.body
+        const { userId } = req.params
 
-        const usersData = await fetch(usersDB)
-        const users = await usersData.json()
+        const user = await UsersModel.findById(userId)
+        if (!user) throw new Error('User is invalid')
 
-        const userExist = users.findIndex(user => user.id === userId)
-        if (userExist === -1) {
-            return res.status(403).json({
-                success: false,
-                error: `Cannot create post during non user exists`
-            })
-        }
-        if (!content) throw new Error(`Content can't be empty`)
-        const newPost = {
-            id: crypto.randomUUID(),
+        if (content.length === 0) throw new Error(`Content can't be empty`)
+        const createdPost = await PostsModel.create({
             content,
-            authorId: userId
-        }
-        await updateToDB("POST", postsDB, newPost)
-
+            authorId: userId,
+        })
         res.status(201).json({
-            data: newPost,
-            success: true,
-            message: 'Post create success'
+            data: createdPost,
+            message: 'Posted Successfully',
+            success: true
         })
     }
     catch (error) {
@@ -104,160 +83,115 @@ app.post('/posts', async (req, res) => {
 
 })
 // Viết API cho phép user chỉnh sửa lại bài post(chỉ user tạo bài viết mới được phép chỉnh sửa).
-app.patch('/posts/:postId', async (req, res) => {
+app.patch('/:userId/post/:postId', async (req, res) => {
     try {
-        const { postId } = req.params
-        const { content, userId } = req.body
+        const { content } = req.body
+        const { userId, postId } = req.params
 
-        const postsData = await fetch(postsDB)
-        const posts = await postsData.json()
+        const post = await PostsModel.findById(postId)
+        if (!post) throw new Error('Post is not existed')
+        if (userId !== post.authorId) throw new Error('User invalid')
 
-        const post = posts.find(post => post.id === postId)
-        if (!post || post.authorId !== userId) {
-            return res.status(400).json({
-                success: false,
-                error: "Non post found",
-                data: null
-            })
-        }
-        if (!content) throw new Error(`Content can't be empty`)
+        if (content.length === 0) throw new Error(`Content can't be empty`)
+
         post.content = content
-
-        await updateToDB("PATCH", `${postsDB}/${postId}`, post)
-
-        res.status(202).json({
-            success: true,
-            message: 'Success to update post',
-            data: post
+        await post.save()
+        res.status(200).json({
+            data: content,
+            message: 'Update Successfully',
+            success: true
         })
     }
     catch (error) {
-        res.status(404).json({
+        res.status(400).json({
             success: false,
             error: error.message
         })
     }
 })
 // Viết API cho phép user được comment vào bài post
-app.post('/posts/:postId/comments', async (req, res) => {
+app.post('/:userId/post/:postId/comment', async (req, res) => {
     try {
-        const { postId } = req.params
-        const { userId, content } = req.body
-        /* 
-        => Check userId exist && logged in 
-        */
-        const usersData = await fetch(usersDB)
-        const users = await usersData.json()
-        const user = users.find(user => user.id === userId)
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: "User not exists",
-                data: null
-            })
-        }
+        const { content, userCommentId } = req.body
+        const { postId, userId } = req.params
 
-        const postsData = await fetch(postsDB)
-        const posts = await postsData.json()
-        const post = posts.find(post => post.id === postId)
-        if (!post) {
-            return res.status(400).json({
-                success: false,
-                error: "Non post found",
-                data: null
-            })
-        }
+        const post = await PostsModel.findById(postId)
+        if (!post) throw new Error('Post is not existed')
+        if (userId !== post.authorId) throw new Error('User invalid')
 
-        if (!content) throw new Error(`Content can't be empty`)
+        const userComment = await UsersModel.findById(userCommentId)
+        if (!userComment) throw new Error('User is invalid')
+        if (content.length === 0) throw new Error(`Content can't be empty`)
 
-        const newComment = {
-            id: crypto.randomUUID(),
-            postId,
+        const createdComment = await CommentsModel.create({
             content,
-            authorId: userId
-        }
-        await updateToDB("POST", commentsDB, newComment)
-
-        res.status(202).json({
+            authorId: userCommentId,
+            postId
+        })
+        res.status(201).json({
             message: "Comment success",
             success: true,
-            data: newComment
+            data: createdComment
         })
     }
     catch (error) {
-        res.status(404).json({
+        res.status(400).json({
             success: false,
             error: error.message
         })
     }
 })
 // Viết API cho phép user chỉnh sửa comment(chỉ user tạo comment mới được sửa)
-app.patch("/post/:postId/comments/:commentId", async (req, res) => {
+app.patch("/:userId/post/:postId/comment/:commentId", async (req, res) => {
     try {
-        const { postId, commentId } = req.params
-        const { userId, content } = req.body
+        const { postId, commentId, userId } = req.params
+        const { userCommentId, content } = req.body
 
-        const commentsData = await fetch(postsDB)
-        const comments = await commentsData.json()
-        const comment = comments.find(comment => comment.id === commentId)
-        if (userId !== comment.authorId) {
-            return res.status(404).json({
-                success: false,
-                error: "Author is not correct",
-                data: null
-            })
-        }
-        if (postId !== comment.postId) {
-            return res.status(404).json({
-                success: false,
-                error: "Post not found",
-                data: null
-            })
-        }
-        if (!comment) {
-            return res.status(400).json({
-                success: false,
-                error: "Non comment found",
-                data: null
-            })
-        }
-        if (!content) throw new Error(`Content can't be empty`)
+        const post = await PostsModel.findById(postId)
+        if (!post) throw new Error('Post is not existed')
+        if (userId !== post.authorId) throw new Error('User invalid')
+
+        const comment = await CommentsModel.findById(commentId)
+        if (!comment) throw new Error('Comment is not existed')
+        if (userCommentId !== comment.authorId) throw new Error('Something is wrong')
+
+        if (content.length === 0) throw new Error(`Content can't be empty`)
+
         comment.content = content
-        await updateToDB("PATCH", `${commentsDB}/${commentId}`, comment)
-        res.status(202).json({
+        await comment.save()
+
+        res.status(200).json({
             message: "Comment success",
             success: true,
             data: content
         })
     }
     catch (error) {
-        res.status(404).json({
+        res.status(400).json({
             success: false,
             error: error.message
         })
     }
 })
 // Viết API lấy tất cả comment của một bài post.
-app.get("/posts/:postId/comments", async (req, res) => {
+// Viết API lấy một bài post và tất cả comment của bài post đó thông qua postId
+app.get("/:userId/post/:postId/comment", async (req, res) => {
     try {
-        const { postId } = req.params
-        const postsData = await fetch(postsDB)
-        const posts = await postsData.json()
-        const post = posts.find(post => post.id === postId)
-        if (!post) {
-            res.status(400).json({
-                error: "No post found",
-                data: null,
-                success: false
-            })
-        }
-        const commentsData = await fetch(commentsDB)
-        const comments = await commentsData.json()
-        const commentsList = comments.filter(comment => comment.postId === post.id)
+        const { postId, userId } = req.params
+
+        const post = await PostsModel.findById(postId)
+        if (!post) throw new Error('No post found')
+        if (post.authorId !== userId) throw new Error('Something is wrong')
+
+        const comments = await CommentsModel.find({
+            postId
+        })
+        if (comments.length === 0) throw new Error('Become the first one comment')
+
         res.status(200).json({
             success: true,
-            message: "Get comments by post id success",
-            data: commentsList
+            message: "Get comments by postId success",
+            data: comments
         })
     }
     catch (error) {
@@ -272,11 +206,10 @@ app.get("/posts/:postId/comments", async (req, res) => {
 // Viết API lấy tất cả các bài post, 3 comment đầu(dựa theo index) của tất cả user.
 app.get("/posts", async (req, res) => {
     try {
-        const postsData = await fetch(postsDB)
-        const posts = await postsData.json()
+        const posts = await PostsModel.find()
+        const comments = await CommentsModel.find()
 
-        const commentsData = await fetch(commentsDB)
-        const comments = await commentsData.json()
+        if (!posts) throw new Error('No post found')
 
         const postsList = posts.map(post => {
             const commentsList = comments.filter(comment => comment.postId === post.id)
@@ -297,38 +230,5 @@ app.get("/posts", async (req, res) => {
         })
     }
 })
-// Viết API lấy một bài post và tất cả comment của bài post đó thông qua postId
-app.get("/posts/:postId", async (req, res) => {
-    try {
-        const { postId } = req.params
-        const postsData = await fetch(postsDB)
-        const posts = await postsData.json()
-        const post = posts.find(post => post.id === postId)
-        if (!post) {
-            res.status(400).json({
-                error: "No post found",
-                data: null,
-                success: false
-            })
-        }
-        const commentsData = await fetch(commentsDB)
-        const comments = await commentsData.json()
-        const commentsList = comments.filter(comment => comment.postId === postId)
-        res.status(200).json({
-            message: "Get post success",
-            success: true,
-            data: {
-                post,
-                commentsList
-            }
-        })
-    }
-    catch (error) {
-        res.status(404).json({
-            error: error.message,
-            success: false,
-            data: null
-        })
-    }
-})
-app.listen(urlPort, () => { console.log(`App is running on ${urlPort}`) })
+
+app.listen(SERVER_CONFIG.PORT, () => { console.log(`App is running on ${urlPort}`) })
