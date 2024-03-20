@@ -7,7 +7,6 @@ import { SERVER_CONFIG } from './configs/server.config.js'
 
 const urlDB = `mongodb+srv://${SERVER_CONFIG.RESOURCES.username}:${SERVER_CONFIG.RESOURCES.password}@cluster0.3ckpb3m.mongodb.net/${SERVER_CONFIG.RESOURCES.databaseName}?retryWrites=true&w=majority&appName=Cluster0`
 
-mongoose.connect(urlDB)
 const app = express()
 app.use(express.json());
 
@@ -231,4 +230,13 @@ app.get("/posts", async (req, res) => {
     }
 })
 
-app.listen(SERVER_CONFIG.PORT, () => { console.log(`App is running on ${urlPort}`) })
+const main = async () => {
+    try {
+        await mongoose.connect(urlDB)
+        app.listen(SERVER_CONFIG.PORT, () => { console.log(`App is running on ${urlPort}`) })
+    }
+    catch (error) {
+        console.log(error)
+    }
+}
+main()
